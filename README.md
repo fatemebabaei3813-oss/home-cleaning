@@ -6,7 +6,7 @@
 [![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/Guide/HTML/HTML5)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-![داشبورد نمونه]([https://via.placeholder.com/800x400/f8faf9/2d3748?text](https://fatemebabaei3813-oss.github.io/home-cleaning/)=داشبورد+مدیریت+خانه+پاک+-+صفحه+اصلی)
+![داشبورد نمونه]((https://fatemebabaei3813-oss.github.io/home-cleaning/)=داشبورد+مدیریت+خانه+پاک+-+صفحه+اصلی)
 
 > 🏡 **خانه‌ای پاک، ذهنی آرام.**  
 > این پروژه یک اپلیکیشن ساده و کاربردی برای برنامه‌ریزی و پیگیری کارهای نظافتی منزل است — طراحی‌شده توسط فاطمه بابائی در حوزه توسعه فرانت‌اند و طراحی رابط کاربری.
