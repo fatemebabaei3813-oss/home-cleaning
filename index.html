@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="fa" dir="rtl" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مدیریت خانه پاک</title>
+  <!-- ✅ بدون فاصله اضافه -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ✅ لینک فونت بدون شکستن خط -->
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --background: #f8faf9;
+      --surface: #ffffff;
+      --text: #2d3748;
+      --primary: #4ade80;
+      --secondary: #64748b;
+    }
+
+    body {
+      margin: 0;
+      background-color: var(--background);
+    }
+
+    .task-card {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: var(--surface);
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .task-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .task-card.completed {
+      opacity: 0.7;
+    }
+
+    .checkbox {
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--secondary);
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .checkbox:checked {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .checkbox:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: #22c55e;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid #e2e8f0;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: #f1f5f9;
+      border-color: var(--secondary);
+    }
+
+    .btn-secondary.delete-btn:hover {
+      color: #ef4444;
+      background: #fee2e2;
+    }
+
+    .progress-ring {
+      transform: rotate(-90deg);
+    }
+
+    .progress-ring-circle {
+      transition: stroke-dashoffset 0.5s ease;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.4s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .category-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .category-kitchen { background: #fef3c7; color: #92400e; }
+    .category-bathroom { background: #dbeafe; color: #1e40af; }
+    .category-bedroom { background: #fce7f3; color: #9f1239; }
+    .category-living { background: #d1fae5; color: #065f46; }
+    .category-other { background: #f3f4f6; color: #374151; }
+
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--text);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      z-index: 1000;
+      animation: fadeIn 0.3s ease-in;
+    }
+  </style>
+</head>
+<body class="h-full">
+  <div id="app" class="h-full"></div>
+  <div id="toast" style="display: none;"></div>
+
+  <script>
+    // 📦 داده‌ها (در localStorage ذخیره می‌شوند)
+    let tasks = JSON.parse(localStorage.getItem('cleaningTasks') || '[]');
+    let currentScreen = localStorage.getItem('currentScreen') === 'dashboard' ? 'dashboard' : 'onboarding';
+    let showModal = false;
+    let editingTask = null;
+
+    // 🛠️ توابع کمکی
+    function saveTasks() {
+      localStorage.setItem('cleaningTasks', JSON.stringify(tasks));
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // 🔁 رندر کامپوننت‌ها
+    function render() {
+      const app = document.getElementById('app');
+      app.innerHTML = currentScreen === 'onboarding' ? renderOnboarding() : renderDashboard();
+      
+      // event listenerها را دوباره وصل می‌کنیم (چون innerHTML می‌زند)
+      bindEventListeners();
+    }
+
+    function bindEventListeners() {
+      // رویدادها را به جای inline js، با addEventListener وصل می‌کنیم
+      document.querySelectorAll('.task-checkbox').forEach(el => {
+        el.addEventListener('click', () => {
+          const taskId = el.dataset.taskId;
+          const task = tasks.find(t => t.id === taskId);
+          if (task) toggleTask(task);
+        });
+      });
+
+      document.querySelectorAll('.task-edit').forEach(el => {
+        el.addEventListener('click', () => {
+          const taskId = el.dataset.taskId;
+          const task = tasks.find(t => t.id === taskId);
+          if (task) openModal(task);
+        });
+      });
+
+      document.querySelectorAll('.task-delete').forEach(el => {
+        el.addEventListener('click', () => {
+          const taskId = el.dataset.taskId;
+          const task = tasks.find(t => t.id === taskId);
+          if (task) deleteTask(task, el);
+        });
+      });
+
+      document.querySelectorAll('.modal-backdrop').forEach(el => {
+        el.addEventListener('click', (e) => {
+          if (e.target === el) closeModal();
+        });
+      });
+    }
+
+    function getCategoryIcon(category) {
+      const icons = {
+        'آشپزخانه': '🍳',
+        'حمام': '🚿',
+        'اتاق خواب': '🛏️',
+        'نشیمن': '🛋️',
+        'سایر': '🏠'
+      };
+      return icons[category] || '📋';
+    }
+
+    function getCategoryClass(category) {
+      const classes = {
+        'آشپزخانه': 'category-kitchen',
+        'حمام': 'category-bathroom',
+        'اتاق خواب': 'category-bedroom',
+        'نشیمن': 'category-living',
+        'سایر': 'category-other'
+      };
+      return classes[category] || 'category-other';
+    }
+
+    function calculateProgress() {
+      if (tasks.length === 0) return 0;
+      const completed = tasks.filter(t => t.completed).length;
+      return Math.round((completed / tasks.length) * 100);
+    }
+
+    function getStreak() {
+      const completedTasks = tasks.filter(t => t.completed && t.lastCompleted);
+      if (completedTasks.length === 0) return 0;
+      return Math.max(...completedTasks.map(t => t.streak || 0));
+    }
+
+    // 🎛️ عملیات روی تسک‌ها
+    function toggleTask(task) {
+      const index = tasks.findIndex(t => t.id === task.id);
+      if (index === -1) return;
+
+      const now = new Date().toISOString();
+      tasks[index] = {
+        ...task,
+        completed: !task.completed,
+        lastCompleted: !task.completed ? now : task.lastCompleted,
+        streak: !task.completed ? (task.streak || 0) + 1 : task.streak
+      };
+      saveTasks();
+      render();
+    }
+
+    function deleteTask(task, deleteBtn) {
+      if (deleteBtn.textContent === 'حذف') {
+        deleteBtn.textContent = 'تأیید؟';
+        deleteBtn.style.background = '#fee2e2';
+        deleteBtn.style.color = '#ef4444';
+        setTimeout(() => {
+          if (deleteBtn.textContent === 'تأیید؟') {
+            deleteBtn.textContent = 'حذف';
+            deleteBtn.style.background = '';
+            deleteBtn.style.color = '#ef4444';
+          }
+        }, 3000);
+        return;
+      }
+
+      tasks = tasks.filter(t => t.id !== task.id);
+      saveTasks();
+      showToast('کار حذف شد');
+      render();
+    }
+
+    function openModal(task = null) {
+      editingTask = task;
+      showModal = true;
+      render();
+      setTimeout(() => {
+        const input = document.getElementById('task-title');
+        if (input) input.focus();
+      }, 100);
+    }
+
+    function closeModal() {
+      showModal = false;
+      editingTask = null;
+      render();
+    }
+
+    function saveTask(event) {
+      event.preventDefault();
+      
+      if (tasks.length >= 999 && !editingTask) {
+        showToast('حداکثر تعداد کارها (999) پر شده است');
+        return;
+      }
+
+      const formData = new FormData(event.target);
+      const taskData = {
+        id: editingTask?.id || `task-${Date.now()}`,
+        title: formData.get('title').trim(),
+        category: formData.get('category'),
+        frequency: formData.get('frequency'),
+        completed: editingTask?.completed || false,
+        lastCompleted: editingTask?.lastCompleted || null,
+        streak: editingTask?.streak || 0,
+        createdAt: editingTask?.createdAt || new Date().toISOString()
+      };
+
+      if (!taskData.title) {
+        showToast('لطفاً عنوان کار را وارد کنید');
+        return;
+      }
+
+      if (editingTask) {
+        tasks = tasks.map(t => t.id === editingTask.id ? taskData : t);
+        showToast('کار به‌روزرسانی شد');
+      } else {
+        tasks.push(taskData);
+        showToast('کار جدید اضافه شد');
+      }
+
+      saveTasks();
+      closeModal();
+    }
+
+    // 🖼️ کامپوننت‌ها
+    function renderOnboarding() {
+      return `
+        <div class="flex items-center justify-center h-full p-6" style="background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);">
+          <div class="text-center fade-in" style="max-width: 400px;">
+            <div style="font-size: 80px; margin-bottom: 24px;">🏠</div>
+            <h1 style="font-size: 32px; font-weight: 700; color: white; margin-bottom: 16px;">
+              به برنامه مدیریت نظافت خوش آمدید
+            </h1>
+            <p style="font-size: 18px; color: rgba(255,255,255,0.9); margin-bottom: 48px;">
+              کارهای خانگی خود را سازماندهی کنید و خانه‌ای پاک و منظم داشته باشید
+            </p>
+            <button id="start-btn" class="btn-primary" style="width: 100%;">
+              شروع کنید
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDashboard() {
+      const progress = calculateProgress();
+      const streak = getStreak();
+      const todayTasks = tasks.filter(t => t.frequency === 'روزانه');
+      const weeklyTasks = tasks.filter(t => t.frequency === 'هفتگی');
+
+      // تاریخ فارسی با fallback
+      const date = new Date();
+      const formattedDate = date.toLocaleDateString('fa-IR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }) || date.toLocaleDateString();
+
+      return `
+        <div class="h-full overflow-auto">
+          <div style="max-width: 800px; margin: 0 auto; padding: 24px;">
+            <div style="background: var(--surface); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);" class="fade-in">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <div>
+                  <h1 style="font-size: 28px; font-weight: 700; color: var(--text); margin-bottom: 8px;">
+                    داشبورد من
+                  </h1>
+                  <p style="color: var(--secondary); font-size: 14px;">
+                    ${escapeHtml(formattedDate)}
+                  </p>
+                </div>
+                <div style="text-align: center;">
+                  <svg width="80" height="80" class="progress-ring">
+                    <circle cx="40" cy="40" r="34" stroke="#e2e8f0" stroke-width="6" fill="none"/>
+                    <circle 
+                      cx="40" cy="40" r="34" 
+                      stroke="var(--primary)" 
+                      stroke-width="6" 
+                      fill="none"
+                      class="progress-ring-circle"
+                      stroke-dasharray="213.628"
+                      stroke-dashoffset="${213.628 - (213.628 * progress) / 100}"
+                      stroke-linecap="round"
+                    />
+                    <text x="40" y="40" text-anchor="middle" dy=".3em" style="font-size: 18px; font-weight: 700; fill: var(--text);">
+                      ${progress}%
+                    </text>
+                  </svg>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                <div style="background: linear-gradient(135deg, var(--primary), #22c55e); padding: 20px; border-radius: 12px; color: white;">
+                  <div style="font-size: 28px; font-weight: 700; margin-bottom: 4px;">${tasks.length}</div>
+                  <div style="font-size: 14px; opacity: 0.9;">کل کارها</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #fb923c, #f97316); padding: 20px; border-radius: 12px; color: white;">
+                  <div style="font-size: 28px; font-weight: 700; margin-bottom: 4px;">${streak} 🔥</div>
+                  <div style="font-size: 14px; opacity: 0.9;">رکورد پیاپی</div>
+                </div>
+              </div>
+
+              <button id="add-task-btn" class="btn-primary" style="width: 100%;">
+                افزودن کار جدید ➕
+              </button>
+            </div>
+
+            ${todayTasks.length > 0 ? `
+              <div style="margin-bottom: 24px;" class="fade-in">
+                <h2 style="font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 16px;">کارهای امروز</h2>
+                <div style="display: grid; gap: 12px;">
+                  ${todayTasks.map(task => renderTaskCard(task)).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${weeklyTasks.length > 0 ? `
+              <div class="fade-in">
+                <h2 style="font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 16px;">کارهای هفتگی</h2>
+                <div style="display: grid; gap: 12px;">
+                  ${weeklyTasks.map(task => renderTaskCard(task)).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            ${tasks.length === 0 ? `
+              <div style="text-align: center; padding: 60px 20px; color: var(--secondary);">
+                <div style="font-size: 64px; margin-bottom: 16px;">📝</div>
+                <p style="font-size: 18px;">هنوز کاری اضافه نکرده‌اید</p>
+                <p style="font-size: 14px; margin-top: 8px;">با کلیک روی دکمه بالا شروع کنید</p>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        ${showModal ? renderModal() : ''}
+      `;
+    }
+
+    function renderTaskCard(task) {
+      return `
+        <div class="task-card ${task.completed ? 'completed' : ''}">
+          <input 
+            type="checkbox" 
+            class="checkbox task-checkbox"
+            data-task-id="${escapeHtml(task.id)}"
+            ${task.completed ? 'checked' : ''}
+          />
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span style="font-size: 20px;">${getCategoryIcon(task.category)}</span>
+              <span style="font-size: 18px; font-weight: 600; color: var(--text); ${task.completed ? 'text-decoration: line-through; opacity: 0.6;' : ''}">
+                ${escapeHtml(task.title)}
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="category-badge ${getCategoryClass(task.category)}">${escapeHtml(task.category)}</span>
+              <span style="font-size: 12px; color: var(--secondary);">
+                ${escapeHtml(task.frequency)}
+              </span>
+              ${task.streak > 0 ? `<span style="font-size: 12px;">🔥 ${task.streak}</span>` : ''}
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-secondary task-edit" data-task-id="${escapeHtml(task.id)}">ویرایش</button>
+            <button class="btn-secondary task-delete delete-btn" data-task-id="${escapeHtml(task.id)}">حذف</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderModal() {
+      return `
+        <div class="modal-backdrop">
+          <div style="background: var(--surface); border-radius: 16px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+            <h2 style="font-size: 24px; font-weight: 700; color: var(--text); margin-bottom: 24px;">
+              ${editingTask ? 'ویرایش کار' : 'افزودن کار جدید'}
+            </h2>
+            
+            <form id="task-form">
+              <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px;">
+                  عنوان کار
+                </label>
+                <input 
+                  type="text" 
+                  id="task-title"
+                  name="title" 
+                  value="${editingTask ? escapeHtml(editingTask.title) : ''}" 
+                  required
+                  style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; color: var(--text); background: var(--surface);"
+                  placeholder="مثال: جاروکشی اتاق نشیمن"
+                />
+              </div>
+
+              <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px;">
+                  دسته‌بندی
+                </label>
+                <select 
+                  name="category" 
+                  required
+                  style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; color: var(--text); background: var(--surface); cursor: pointer;"
+                >
+                  <option value="آشپزخانه" ${editingTask?.category === 'آشپزخانه' ? 'selected' : ''}>🍳 آشپزخانه</option>
+                  <option value="حمام" ${editingTask?.category === 'حمام' ? 'selected' : ''}>🚿 حمام</option>
+                  <option value="اتاق خواب" ${editingTask?.category === 'اتاق خواب' ? 'selected' : ''}>🛏️ اتاق خواب</option>
+                  <option value="نشیمن" ${editingTask?.category === 'نشیمن' ? 'selected' : ''}>🛋️ نشیمن</option>
+                  <option value="سایر" ${editingTask?.category === 'سایر' ? 'selected' : ''}>🏠 سایر</option>
+                </select>
+              </div>
+
+              <div style="margin-bottom: 24px;">
+                <label style="display: block; font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 8px;">
+                  تکرار
+                </label>
+                <select 
+                  name="frequency" 
+                  required
+                  style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; color: var(--text); background: var(--surface); cursor: pointer;"
+                >
+                  <option value="روزانه" ${editingTask?.frequency === 'روزانه' ? 'selected' : ''}>روزانه</option>
+                  <option value="هفتگی" ${editingTask?.frequency === 'هفتگی' ? 'selected' : ''}>هفتگی</option>
+                  <option value="ماهانه" ${editingTask?.frequency === 'ماهانه' ? 'selected' : ''}>ماهانه</option>
+                </select>
+              </div>
+
+              <div style="display: flex; gap: 12px;">
+                <button type="submit" class="btn-primary" style="flex: 1;">${editingTask ? 'ذخیره تغییرات' : 'افزودن'}</button>
+                <button type="button" id="cancel-btn" class="btn-secondary" style="flex: 1;">انصراف</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    // 🧠 راه‌اندازی
+    function initApp() {
+      render();
+
+      // event listeners for static buttons
+      document.addEventListener('click', (e) => {
+        if (e.target.id === 'start-btn') {
+          currentScreen = 'dashboard';
+          localStorage.setItem('currentScreen', 'dashboard');
+          render();
+        } else if (e.target.id === 'add-task-btn') {
+          openModal();
+        } else if (e.target.id === 'cancel-btn') {
+          closeModal();
+        }
+      });
+
+      document.addEventListener('submit', (e) => {
+        if (e.target.id === 'task-form') {
+          saveTask(e);
+        }
+      });
+    }
+
+    window.addEventListener('load', initApp);
+  </script>
+</body>
+</html>
